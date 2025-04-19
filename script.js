@@ -12,9 +12,7 @@ const Gameboard = (function () {
     }
     resetBoard();
 
-    const setTile = (player, row, column) => {
-        board[row][column] = player.token;
-    }
+    const setTile = (player, row, column) => board[row][column] = player.token;
 
     const isGameTied = () => {
         for(let i = 0; i < 3; i++) {
@@ -45,12 +43,12 @@ const Gameboard = (function () {
 
         // Check left diagonals
         if(board[0][0] == board[1][1] && board[0][0] == board[2][2] && board[0][0]) {
-            return GameController.player1.token == board[0][1] ? GameController.player1 : GameController.player2;
+            return GameController.player1.token == board[0][0] ? GameController.player1 : GameController.player2;
         }
 
         // Check right diagonals
         if(board[0][2] == board[1][1] && board[0][2] == board[2][0] && board[0][2]) {
-            return GameController.player1.token == board[1][0] ? GameController.player1 : GameController.player2;
+            return GameController.player1.token == board[0][2] ? GameController.player1 : GameController.player2;
         }
     }
 
@@ -58,7 +56,11 @@ const Gameboard = (function () {
 })();
 
 function Player(name, token) {
-    return {name, token};
+    function setName(newName) {
+        this.name = newName;
+    }
+
+    return {setName, name, token};
 }
 
 const GameController = (function () {
@@ -75,23 +77,98 @@ const GameController = (function () {
         if(!Gameboard.board[row][column]) {
             Gameboard.setTile(activePlayer, row, column);
             console.log(`${activePlayer.token} placed at row ${row} column ${column}.`)
-            console.log(Gameboard.board);
 
             let winner = Gameboard.getWinner();
 
             if(winner) {
                 console.log(`${winner.name} is the winner!`);
-                Gameboard.resetBoard();
-                activePlayer = player1;
+                console.log(Gameboard.board);
+                resetGame(winner);
             } else if(Gameboard.isGameTied()) {
                 console.log("It's a tie!");
-                Gameboard.resetBoard();
-                activePlayer = player1;
+                resetGame("tie");
             } else {
                 setActivePlayer();
+            }
+
+            ScreenController.updateDisplay(activePlayer);
+        }
+    }
+
+    const resetGame = (winner = "") => {
+        activePlayer = player1;
+        Gameboard.resetBoard();
+        ScreenController.refreshDisplay();
+        ScreenController.updateDisplay(activePlayer, winner);
+    }
+
+    return {player1, player2, playRound, resetGame};
+})();
+
+const ScreenController = (function () {
+    const buttons = [];
+    const container = document.querySelector(".container");
+    const roundInfo = document.querySelector(".round-info");
+    const winInfo = document.querySelector(".win-info");
+
+    for(let i = 0; i < 3; i++) {
+        buttons[i] = [];
+
+        for(let j = 0; j < 3; j++) {
+            buttons[i].push(document.querySelector(`.row${i}.column${j}`));
+        }
+    }
+
+    console.log(buttons);
+
+    const updateDisplay = (activePlayer, winner = "") => {
+        for(let i = 0; i < 3; i++) {
+            for(let j = 0; j < 3; j++) {
+                if(!buttons[i][j].classList[2] && Gameboard.board[i][j] != 0) {
+                    buttons[i][j].classList.add(Gameboard.board[i][j]);
+                }
+            }
+        }
+
+        if(winner == "") {
+            roundInfo.textContent = `${activePlayer.name}'s turn (${activePlayer.token})`;
+        } else if(winner == "tie") {
+            winInfo.textContent = "It's a tie!";
+        } else {
+            winInfo.textContent = `${winner.name} (${winner.token}) wins!`
+        }
+    }
+
+    const refreshDisplay = () => {
+        for(let i = 0; i < 3; i++) {
+            for(let j = 0; j < 3; j++) {
+                if(buttons[i][j].classList[2]) {
+                    buttons[i][j].classList.remove(buttons[i][j].classList[buttons[i][j].classList.length - 1]);
+                }
             }
         }
     }
 
-    return {player1, player2, playRound};
+    container.addEventListener("click", (event) => {
+        if(event.target.tagName == "BUTTON" && event.target.parentElement.classList.contains("table")) {
+            const row = event.target.classList[0].substring(event.target.classList[0].length - 1);
+            const column = event.target.classList[1].substring(event.target.classList[1].length - 1);
+            GameController.playRound(row, column);
+        }
+
+        if(event.target.textContent == "New Game") {
+            GameController.resetGame();
+            winInfo.textContent = "";
+        }
+
+        if(event.target.textContent == "Set Names") {
+            if(document.querySelector("#player-1-name").value && document.querySelector("#player-2-name").value) {
+                GameController.player1.setName(document.querySelector("#player-1-name").value);
+                GameController.player2.setName(document.querySelector("#player-2-name").value);
+                GameController.resetGame();
+            }
+        }
+    });
+
+    return {updateDisplay, refreshDisplay};
 })();
